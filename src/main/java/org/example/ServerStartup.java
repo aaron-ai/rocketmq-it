@@ -4,8 +4,6 @@ import java.util.HashMap;
 import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.common.MQVersion;
 import org.apache.rocketmq.namesrv.NamesrvController;
-import org.apache.rocketmq.proxy.grpc.v2.GrpcMessagingApplication;
-import org.apache.rocketmq.proxy.processor.MessagingProcessor;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 public class ServerStartup {
@@ -14,31 +12,22 @@ public class ServerStartup {
     final String broker1Name;
     final String clusterName;
     final NamesrvController namesrvController;
-    final BrokerController brokerController;
-
-    final MessagingProcessor messagingProcessor;
-
-    final GrpcMessagingApplication grpcMessagingApplication;
+    final BrokerController brokerControllerA;
+    final BrokerController brokerControllerB;
 
     public ServerStartup() {
         System.setProperty(
             RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         namesrvController = Utility.createAndStartNamesrv();
         nsAddr = "localhost:" + namesrvController.getNettyServerConfig().getListenPort();
-        brokerController = Utility.createAndStartBroker(nsAddr);
-        messagingProcessor = Utility.createAndStartMessagingProcessor(brokerController);
-        grpcMessagingApplication = Utility.createAndStartProxy(messagingProcessor);
-        clusterName = brokerController.getBrokerConfig().getBrokerClusterName();
-        broker1Name = brokerController.getBrokerConfig().getBrokerName();
-        broker1Addr = "localhost:" + brokerController.getNettyServerConfig().getListenPort();
-    }
+        brokerControllerA = Utility.createAndStartBrokerA(nsAddr);
+        clusterName = brokerControllerA.getBrokerConfig().getBrokerClusterName();
 
-//    public void shutdown() throws Exception {
-//        messagingProcessor.shutdown();
-//        grpcMessagingApplication.shutdown();
-//        brokerController.shutdown();
-//        namesrvController.shutdown();
-//    }
+        broker1Name = brokerControllerA.getBrokerConfig().getBrokerName();
+        broker1Addr = "localhost:" + brokerControllerA.getNettyServerConfig().getListenPort();
+
+        brokerControllerB = Utility.createAndStartBrokerB(nsAddr);
+    }
 
     public static void main(String[] args) {
         final ServerStartup serverStartup = new ServerStartup();

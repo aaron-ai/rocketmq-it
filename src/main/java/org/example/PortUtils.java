@@ -4,26 +4,34 @@ public class PortUtils {
     private PortUtils() {
     }
 
-    public static int getBrokerPort() {
-        String port = System.getenv("rocketmq.broker.port");
+    public static int getBrokerAPort() {
+        String port = System.getenv("rocketmq.broker-a.port");
         if (null == port) {
             port = "10911";
         }
         return Integer.parseInt(port);
     }
 
-    public static int getProxyPort() {
-        String port = System.getenv("rocketmq.proxy.port");
+    public static int getBrokerBPort() {
+        String port = System.getenv("rocketmq.broker-b.port");
         if (null == port) {
-            port = "8081";
+            port = "11911";
         }
         return Integer.parseInt(port);
     }
 
-    public static int getBrokerHAServicePort() {
-        String port = System.getenv("rocketmq.broker.ha.port");
+    public static int getBrokerHAAServicePort() {
+        String port = System.getenv("rocketmq.broker-a.ha.port");
         if (null == port) {
             port = "10912";
+        }
+        return Integer.parseInt(port);
+    }
+
+    public static int getBrokerHABServicePort() {
+        String port = System.getenv("rocketmq.broker-b.ha.port");
+        if (null == port) {
+            port = "11912";
         }
         return Integer.parseInt(port);
     }

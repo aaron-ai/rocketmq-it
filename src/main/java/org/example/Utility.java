@@ -1,47 +1,23 @@
 package org.example;
 
 import static java.util.Collections.emptyMap;
-import static org.apache.rocketmq.proxy.config.Configuration.CONFIG_PATH_PROPERTY;
-import static org.apache.rocketmq.proxy.config.ConfigurationManager.RMQ_PROXY_HOME;
 
-import apache.rocketmq.v2.MessagingServiceGrpc;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import com.google.gson.stream.JsonReader;
-import io.grpc.Server;
-import io.grpc.ServerInterceptors;
-import io.grpc.ServerServiceDefinition;
-import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.common.BrokerConfig;
 import org.apache.rocketmq.common.namesrv.NamesrvConfig;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.namesrv.NamesrvController;
-import org.apache.rocketmq.proxy.config.ConfigurationManager;
-import org.apache.rocketmq.proxy.config.ProxyConfig;
-import org.apache.rocketmq.proxy.grpc.interceptor.ContextInterceptor;
-import org.apache.rocketmq.proxy.grpc.interceptor.HeaderInterceptor;
-import org.apache.rocketmq.proxy.grpc.v2.GrpcMessagingApplication;
-import org.apache.rocketmq.proxy.processor.DefaultMessagingProcessor;
-import org.apache.rocketmq.proxy.processor.MessagingProcessor;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.apache.rocketmq.store.config.MessageStoreConfig;
@@ -51,8 +27,10 @@ public class Utility {
     public static final InternalLogger logger =
         InternalLoggerFactory.getLogger(Utility.class);
 
-    static final String BROKER_NAME_PREFIX = "TestBrokerName_";
-    static final AtomicInteger BROKER_INDEX = new AtomicInteger(0);
+    static final String BROKER_A = "broker-a";
+
+    static final String BROKER_B = "broker-b";
+
     static final List<File> TMPE_FILES = new ArrayList<>();
     static final List<BrokerController> BROKER_CONTROLLERS = new ArrayList<>();
     static final List<NamesrvController> NAMESRV_CONTROLLERS = new ArrayList<>();
@@ -109,50 +87,50 @@ public class Utility {
         return namesrvController;
     }
 
-    public static BrokerController createAndStartBroker(String nsAddr) {
+    public static BrokerController createAndStartBrokerA(String nsAddr) {
         String baseDir = createTempDir();
         Path commitLogPath = Paths.get(baseDir, "commitlog");
 
         BrokerConfig brokerConfig = new BrokerConfig();
         MessageStoreConfig storeConfig = new MessageStoreConfig();
-        brokerConfig.setBrokerName(BROKER_NAME_PREFIX + BROKER_INDEX.getAndIncrement());
+        brokerConfig.setBrokerName(BROKER_A);
         brokerConfig.setBrokerIP1("127.0.0.1");
         brokerConfig.setNamesrvAddr(nsAddr);
         brokerConfig.setEnablePropertyFilter(true);
+
         storeConfig.setStorePathRootDir(baseDir);
         storeConfig.setStorePathCommitLog(commitLogPath.toString());
         storeConfig.setMappedFileSizeCommitLog(COMMIT_LOG_SIZE);
         storeConfig.setMaxIndexNum(INDEX_NUM);
         storeConfig.setMaxHashSlotNum(INDEX_NUM * 4);
-        return createAndStartBroker(storeConfig, brokerConfig);
+        return createAndStartBrokerA(storeConfig, brokerConfig);
     }
 
-    protected static void setUpServer(MessagingServiceGrpc.MessagingServiceImplBase serverImpl,
-        int port, boolean enableInterceptor) throws IOException, CertificateException {
-        SelfSignedCertificate selfSignedCertificate = new SelfSignedCertificate();
-        ServerServiceDefinition serviceDefinition = ServerInterceptors.intercept(serverImpl);
-        if (enableInterceptor) {
-            serviceDefinition = ServerInterceptors.intercept(serverImpl, new ContextInterceptor(), new HeaderInterceptor());
-        }
-        Server server = NettyServerBuilder.forPort(port)
-            .directExecutor()
-            .addService(serviceDefinition)
-            .useTransportSecurity(selfSignedCertificate.certificate(), selfSignedCertificate.privateKey())
-            .build()
-            .start();
-        final int port1 = server.getPort();
-        // Create a server, add service, start, and register for automatic graceful shutdown.
-        //        grpcCleanup.register(server);
+    public static BrokerController createAndStartBrokerB(String nsAddr) {
+        String baseDir = createTempDir();
+        Path commitLogPath = Paths.get(baseDir, "commitlog");
 
-        ConfigurationManager.getProxyConfig().setGrpcServerPort(port1);
+        BrokerConfig brokerConfig = new BrokerConfig();
+        MessageStoreConfig storeConfig = new MessageStoreConfig();
+        brokerConfig.setBrokerName(BROKER_B);
+        brokerConfig.setBrokerIP1("127.0.0.1");
+        brokerConfig.setNamesrvAddr(nsAddr);
+        brokerConfig.setEnablePropertyFilter(true);
+
+        storeConfig.setStorePathRootDir(baseDir);
+        storeConfig.setStorePathCommitLog(commitLogPath.toString());
+        storeConfig.setMappedFileSizeCommitLog(COMMIT_LOG_SIZE);
+        storeConfig.setMaxIndexNum(INDEX_NUM);
+        storeConfig.setMaxHashSlotNum(INDEX_NUM * 4);
+        return createAndStartBrokerB(storeConfig, brokerConfig);
     }
 
-    public static BrokerController createAndStartBroker(
+    public static BrokerController createAndStartBrokerA(
         MessageStoreConfig storeConfig, BrokerConfig brokerConfig) {
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
         NettyClientConfig nettyClientConfig = new NettyClientConfig();
-        nettyServerConfig.setListenPort(PortUtils.getBrokerPort());
-        storeConfig.setHaListenPort(PortUtils.getBrokerHAServicePort());
+        nettyServerConfig.setListenPort(PortUtils.getBrokerAPort());
+        storeConfig.setHaListenPort(PortUtils.getBrokerHAAServicePort());
         BrokerController brokerController =
             new BrokerController(brokerConfig, nettyServerConfig, nettyClientConfig, storeConfig);
         try {
@@ -170,60 +148,27 @@ public class Utility {
         return brokerController;
     }
 
-    public static MessagingProcessor createAndStartMessagingProcessor(BrokerController brokerController) {
+    public static BrokerController createAndStartBrokerB(
+        MessageStoreConfig storeConfig, BrokerConfig brokerConfig) {
+        NettyServerConfig nettyServerConfig = new NettyServerConfig();
+        NettyClientConfig nettyClientConfig = new NettyClientConfig();
+        nettyServerConfig.setListenPort(PortUtils.getBrokerBPort());
+        storeConfig.setHaListenPort(PortUtils.getBrokerHABServicePort());
+        BrokerController brokerController =
+            new BrokerController(brokerConfig, nettyServerConfig, nettyClientConfig, storeConfig);
         try {
-            String mockProxyHome = "/mock/rmq/proxy/home";
-            URL mockProxyHomeURL = Utility.class.getClassLoader().getResource("rmq-proxy-home");
-            if (mockProxyHomeURL != null) {
-                mockProxyHome = mockProxyHomeURL.toURI().getPath();
-            }
-
-            if (null != mockProxyHome) {
-                System.setProperty(RMQ_PROXY_HOME, mockProxyHome);
-            }
-
-            final String proxyConfigPath = System.getProperty("user.home") + File.separator + "rmq-proxy.json";
-            System.setProperty(CONFIG_PATH_PROPERTY, proxyConfigPath);
-
-            final Gson gson = new Gson();
-            Type ProxyType = new TypeToken<ProxyConfig>() {}.getType();
-            JsonReader reader = new JsonReader(new FileReader(proxyConfigPath));
-            final ProxyConfig proxyConfig = gson.fromJson(reader, ProxyType);
-            proxyConfig.setUseDelayLevel(false);
-            proxyConfig.setProxyMode("local");
-            proxyConfig.setGrpcServerPort(PortUtils.getProxyPort());
-            final FileWriter fileWriter = new FileWriter(proxyConfigPath);
-            gson.toJson(proxyConfig, fileWriter);
-            fileWriter.close();
-
-            ConfigurationManager.initEnv();
-            ConfigurationManager.intConfig();
-            final BrokerConfig brokerConfig = brokerController.getBrokerConfig();
-            ConfigurationManager.getProxyConfig().setNamesrvAddr(brokerConfig.getNamesrvAddr());
-            // Set LongPollingReserveTimeInMillis to 500ms to reserve more time for IT
-            ConfigurationManager.getProxyConfig().setLongPollingReserveTimeInMillis(500);
-            ConfigurationManager.getProxyConfig().setRocketMQClusterName(brokerConfig.getBrokerClusterName());
-            ConfigurationManager.getProxyConfig().setMinInvisibleTimeMillsForRecv(3);
-
-            MessagingProcessor messagingProcessor = DefaultMessagingProcessor.createForLocalMode(brokerController);
-            messagingProcessor.start();
-            return messagingProcessor;
+            Assert.assertTrue(brokerController.initialize());
+            logger.info(
+                "Broker Start name:{} addr:{}",
+                brokerConfig.getBrokerName(),
+                brokerController.getBrokerAddr());
+            brokerController.start();
         } catch (Throwable t) {
-            logger.error("Proxy start failed", t);
-            throw new IllegalStateException("Proxy start failed", t);
+            logger.error("Broker start failed", t);
+            throw new IllegalStateException("Broker start failed", t);
         }
-    }
-
-    public static GrpcMessagingApplication createAndStartProxy(MessagingProcessor messagingProcessor) {
-        try {
-            final GrpcMessagingApplication grpcMessagingApplication = GrpcMessagingApplication.create(messagingProcessor);
-            grpcMessagingApplication.start();
-            setUpServer(grpcMessagingApplication, ConfigurationManager.getProxyConfig().getGrpcServerPort(), true);
-            return grpcMessagingApplication;
-        } catch (Throwable t) {
-            logger.error("Proxy start failed", t);
-            throw new IllegalStateException("Proxy start failed", t);
-        }
+        BROKER_CONTROLLERS.add(brokerController);
+        return brokerController;
     }
 
     public static void initTopic(String topic, String nsAddr, String clusterName) {
@@ -258,5 +203,6 @@ public class Utility {
         }
     }
 
-    private Utility() {}
+    private Utility() {
+    }
 }
