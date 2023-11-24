@@ -86,6 +86,18 @@ public class ServerStartup {
     public static void main(String[] args) throws Exception {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         startNamesrv();
-        startBroker(LOCALHOST_STR + IP_PORT_SEPARATOR + NAMESRV_PORT, "benchmark-cluster", "benchmark-broker");
+
+        int numClusters = 3; // 定义集群的数量
+        int numBrokersPerCluster = 2; // 定义每个集群中 broker 的数量
+
+        char clusterSuffix = 'a';
+        for (int i = 0; i < numClusters; i++) {
+            for (int j = 0; j < numBrokersPerCluster; j++) {
+                String clusterName = "benchmark-cluster-" + clusterSuffix;
+                String brokerName = clusterName + "-broker-" + j; // 在 broker 的名称中包含集群的名称
+                startBroker(LOCALHOST_STR + IP_PORT_SEPARATOR + NAMESRV_PORT, clusterName, brokerName);
+            }
+            clusterSuffix++;
+        }
     }
 }
