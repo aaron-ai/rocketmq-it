@@ -73,7 +73,7 @@ public class Utility {
 
         // find 3 consecutive open ports and use the last one of them
         // rocketmq will also bind to given port - 2
-        nameServerNettyServerConfig.setListenPort(PortUtils.getNamesrvPort());
+        nameServerNettyServerConfig.setListenPort(PortUtilsBak.getNamesrvPort());
         NamesrvController namesrvController =
             new NamesrvController(namesrvConfig, nameServerNettyServerConfig);
         try {
@@ -129,8 +129,8 @@ public class Utility {
         MessageStoreConfig storeConfig, BrokerConfig brokerConfig) {
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
         NettyClientConfig nettyClientConfig = new NettyClientConfig();
-        nettyServerConfig.setListenPort(PortUtils.getBrokerAPort());
-        storeConfig.setHaListenPort(PortUtils.getBrokerHAAServicePort());
+        nettyServerConfig.setListenPort(PortUtilsBak.getBrokerAPort());
+        storeConfig.setHaListenPort(PortUtilsBak.getBrokerHAAServicePort());
         BrokerController brokerController =
             new BrokerController(brokerConfig, nettyServerConfig, nettyClientConfig, storeConfig);
         try {
@@ -152,8 +152,8 @@ public class Utility {
         MessageStoreConfig storeConfig, BrokerConfig brokerConfig) {
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
         NettyClientConfig nettyClientConfig = new NettyClientConfig();
-        nettyServerConfig.setListenPort(PortUtils.getBrokerBPort());
-        storeConfig.setHaListenPort(PortUtils.getBrokerHABServicePort());
+        nettyServerConfig.setListenPort(PortUtilsBak.getBrokerBPort());
+        storeConfig.setHaListenPort(PortUtilsBak.getBrokerHABServicePort());
         BrokerController brokerController =
             new BrokerController(brokerConfig, nettyServerConfig, nettyClientConfig, storeConfig);
         try {

@@ -20,6 +20,7 @@ public class ServerStartup {
             RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         namesrvController = Utility.createAndStartNamesrv();
         nsAddr = "localhost:" + namesrvController.getNettyServerConfig().getListenPort();
+
         brokerControllerA = Utility.createAndStartBrokerA(nsAddr);
         clusterName = brokerControllerA.getBrokerConfig().getBrokerClusterName();
 
@@ -34,18 +35,18 @@ public class ServerStartup {
         Utility.initTopic("normal-topic-0", serverStartup.nsAddr, serverStartup.clusterName);
         Utility.initTopic("normal-topic-1", serverStartup.nsAddr, serverStartup.clusterName);
         Utility.initTopic("normal-topic-2", serverStartup.nsAddr, serverStartup.clusterName);
+
         final HashMap<String, String> fifoAttr = new HashMap<>();
-        fifoAttr.put("+message.type", "FIFO");
         Utility.initTopic("fifo-topic-0", serverStartup.nsAddr, serverStartup.clusterName, fifoAttr);
         Utility.initTopic("fifo-topic-1", serverStartup.nsAddr, serverStartup.clusterName, fifoAttr);
         Utility.initTopic("fifo-topic-2", serverStartup.nsAddr, serverStartup.clusterName, fifoAttr);
+
         final HashMap<String, String> delayAttr = new HashMap<>();
-        delayAttr.put("+message.type", "DELAY");
         Utility.initTopic("delay-topic-0", serverStartup.nsAddr, serverStartup.clusterName, delayAttr);
         Utility.initTopic("delay-topic-1", serverStartup.nsAddr, serverStartup.clusterName, delayAttr);
         Utility.initTopic("delay-topic-2", serverStartup.nsAddr, serverStartup.clusterName, delayAttr);
+
         final HashMap<String, String> transactionAttr = new HashMap<>();
-        transactionAttr.put("+message.type", "TRANSACTION");
         Utility.initTopic("transaction-topic-0", serverStartup.nsAddr, serverStartup.clusterName, transactionAttr);
         Utility.initTopic("transaction-topic-1", serverStartup.nsAddr, serverStartup.clusterName, transactionAttr);
         Utility.initTopic("transaction-topic-2", serverStartup.nsAddr, serverStartup.clusterName, transactionAttr);

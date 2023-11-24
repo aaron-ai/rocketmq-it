@@ -1,46 +1,24 @@
 package org.example;
 
-public class PortUtils {
-    private PortUtils() {
+public final class PortUtils {
+
+    private static final PortAllocator portAllocator = new PortAllocator();
+
+    /**
+     * Find consecutive open ports, returning the first one in the range.
+     */
+    public static int findOpenPorts(int count) {
+        return portAllocator.getPorts(count);
     }
 
-    public static int getBrokerAPort() {
-        String port = System.getenv("rocketmq.broker-a.port");
-        if (null == port) {
-            port = "10911";
-        }
-        return Integer.parseInt(port);
+    /**
+     * Find open port.
+     */
+    public static int findOpenPort() {
+        return portAllocator.getPort();
     }
 
-    public static int getBrokerBPort() {
-        String port = System.getenv("rocketmq.broker-b.port");
-        if (null == port) {
-            port = "11911";
-        }
-        return Integer.parseInt(port);
-    }
-
-    public static int getBrokerHAAServicePort() {
-        String port = System.getenv("rocketmq.broker-a.ha.port");
-        if (null == port) {
-            port = "10912";
-        }
-        return Integer.parseInt(port);
-    }
-
-    public static int getBrokerHABServicePort() {
-        String port = System.getenv("rocketmq.broker-b.ha.port");
-        if (null == port) {
-            port = "11912";
-        }
-        return Integer.parseInt(port);
-    }
-
-    public static int getNamesrvPort() {
-        String port = System.getenv("rocketmq.namesrv.port");
-        if (null == port) {
-            port = "9876";
-        }
-        return Integer.parseInt(port);
+    public static int findBrokerPort() {
+        return findOpenPorts(5);
     }
 }
