@@ -2,9 +2,14 @@ package org.example;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.common.BrokerConfig;
 import org.apache.rocketmq.common.MQVersion;
@@ -16,6 +21,8 @@ import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.apache.rocketmq.store.config.MessageStoreConfig;
+
+import static java.util.Collections.emptyMap;
 
 public class ServerStartup {
     public static final InternalLogger logger = InternalLoggerFactory.getLogger(ServerStartup.class);
@@ -83,19 +90,66 @@ public class ServerStartup {
         namesrvController.start();
     }
 
+    public static void createTopic(String topic, String nsAddr, String clusterName) {
+        createTopic(topic, nsAddr, clusterName, emptyMap());
+    }
+
+    public static void createTopic(String topic, String nsAddr, String clusterName, Map<String, String> attributes) {
+        try {
+            // RocketMQ 4.x
+            Class<?> mqAdmin = Class.forName("org.apache.rocketmq.test.util.MQAdmin");
+            Method createTopic =
+                mqAdmin.getMethod("createTopic", String.class, String.class, String.class, int.class);
+            createTopic.invoke(null, nsAddr, clusterName, topic, 20);
+        } catch (ClassNotFoundException
+                 | InvocationTargetException
+                 | NoSuchMethodException
+                 | IllegalAccessException e) {
+
+            // RocketMQ 5.x
+            try {
+                Class<?> mqAdmin = Class.forName("org.apache.rocketmq.test.util.MQAdminTestUtils");
+                Method createTopic =
+                    mqAdmin.getMethod(
+                        "createTopic", String.class, String.class, String.class, int.class, Map.class);
+                createTopic.invoke(null, nsAddr, clusterName, topic, 20, attributes);
+            } catch (ClassNotFoundException
+                     | InvocationTargetException
+                     | NoSuchMethodException
+                     | IllegalAccessException ex) {
+                throw new LinkageError("Could not initialize topic", ex);
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         startNamesrv();
 
         int numClusters = 3; // 定义集群的数量
         int numBrokersPerCluster = 2; // 定义每个集群中 broker 的数量
+        int numTopicsPerBroker = 500; // 定义每个 broker 上创建的 topic 的数量
+
+        // 创建一个线程池，其核心线程数等于 2 倍 CPU 数
+        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);
 
         char clusterSuffix = 'a';
         for (int i = 0; i < numClusters; i++) {
+            String clusterName = "benchmark-cluster-" + clusterSuffix;
             for (int j = 0; j < numBrokersPerCluster; j++) {
-                String clusterName = "benchmark-cluster-" + clusterSuffix;
                 String brokerName = clusterName + "-broker-" + j; // 在 broker 的名称中包含集群的名称
                 startBroker(LOCALHOST_STR + IP_PORT_SEPARATOR + NAMESRV_PORT, clusterName, brokerName);
+            }
+            for (int k = 0; k < numTopicsPerBroker; k++) {
+                String topicName = clusterName + "-topic-" + k; // 在 topic 的名称中包含集群的名称和 broker 的名称
+                // 将创建 topic 的任务提交到线程池中
+                executorService.submit(() -> {
+                    try {
+                        createTopic(topicName, LOCALHOST_STR + IP_PORT_SEPARATOR + NAMESRV_PORT, clusterName);
+                    } catch (Exception e) {
+                        logger.error("Failed to create topic {}", topicName, e);
+                    }
+                });
             }
             clusterSuffix++;
         }
