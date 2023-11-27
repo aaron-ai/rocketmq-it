@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.rocketmq.broker.BrokerController;
 import org.apache.rocketmq.common.BrokerConfig;
 import org.apache.rocketmq.common.MQVersion;
@@ -21,19 +22,13 @@ import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.netty.NettyServerConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.apache.rocketmq.store.config.MessageStoreConfig;
+import org.example.clients.Consumers;
+import org.example.clients.Producers;
 
 import static java.util.Collections.emptyMap;
 
 public class ServerStartup {
     public static final InternalLogger logger = InternalLoggerFactory.getLogger(ServerStartup.class);
-
-    private static final String COMMIT_LOG_DIR_PREFIX = "commitlog";
-    private static final String LOCALHOST_STR = "127.0.0.1";
-    private static final String IP_PORT_SEPARATOR = ":";
-
-    private static final int COMMIT_LOG_SIZE = 1024 * 1024 * 100;
-    private static final int INDEX_NUM = 1000;
-    private static final int NAMESRV_PORT = 9876;
 
     private static String createTempDir() {
         String path = null;
@@ -52,15 +47,15 @@ public class ServerStartup {
         MessageStoreConfig storeConfig = new MessageStoreConfig();
         brokerConfig.setBrokerClusterName(clusterName);
         brokerConfig.setBrokerName(brokerName);
-        brokerConfig.setBrokerIP1(LOCALHOST_STR);
+        brokerConfig.setBrokerIP1(Constants.LOCALHOST_STR);
         brokerConfig.setNamesrvAddr(namesrvAddr);
         brokerConfig.setEnablePropertyFilter(true);
         String directory = createTempDir();
         storeConfig.setStorePathRootDir(directory);
-        storeConfig.setStorePathCommitLog(directory + File.separator + COMMIT_LOG_DIR_PREFIX);
-        storeConfig.setMappedFileSizeCommitLog(COMMIT_LOG_SIZE);
-        storeConfig.setMaxIndexNum(INDEX_NUM);
-        storeConfig.setMaxHashSlotNum(INDEX_NUM * 4);
+        storeConfig.setStorePathCommitLog(directory + File.separator + Constants.COMMIT_LOG_DIR_PREFIX);
+        storeConfig.setMappedFileSizeCommitLog(Constants.COMMIT_LOG_SIZE);
+        storeConfig.setMaxIndexNum(Constants.INDEX_NUM);
+        storeConfig.setMaxHashSlotNum(Constants.INDEX_NUM * 4);
         NettyServerConfig nettyServerConfig = new NettyServerConfig();
         NettyClientConfig nettyClientConfig = new NettyClientConfig();
         int port = PortUtils.findBrokerPort();
@@ -83,7 +78,7 @@ public class ServerStartup {
         namesrvConfig.setKvConfigPath(kvConfigPath.toString());
         namesrvConfig.setConfigStorePath(namesrvPath.toString());
 
-        nameServerNettyServerConfig.setListenPort(NAMESRV_PORT);
+        nameServerNettyServerConfig.setListenPort(Constants.NAMESRV_PORT);
         NamesrvController namesrvController =
             new NamesrvController(namesrvConfig, nameServerNettyServerConfig);
         namesrvController.initialize();
@@ -101,10 +96,8 @@ public class ServerStartup {
             Method createTopic =
                 mqAdmin.getMethod("createTopic", String.class, String.class, String.class, int.class);
             createTopic.invoke(null, nsAddr, clusterName, topic, 20);
-        } catch (ClassNotFoundException
-                 | InvocationTargetException
-                 | NoSuchMethodException
-                 | IllegalAccessException e) {
+        } catch (ClassNotFoundException | InvocationTargetException | NoSuchMethodException |
+                 IllegalAccessException e) {
 
             // RocketMQ 5.x
             try {
@@ -126,26 +119,23 @@ public class ServerStartup {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         startNamesrv();
 
-        int numClusters = 3; // 定义集群的数量
-        int numBrokersPerCluster = 2; // 定义每个集群中 broker 的数量
-        int numTopicsPerBroker = 500; // 定义每个 broker 上创建的 topic 的数量
-
         // 创建一个线程池，其核心线程数等于 2 倍 CPU 数
         ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);
 
         char clusterSuffix = 'a';
-        for (int i = 0; i < numClusters; i++) {
-            String clusterName = "benchmark-cluster-" + clusterSuffix;
-            for (int j = 0; j < numBrokersPerCluster; j++) {
-                String brokerName = clusterName + "-broker-" + j; // 在 broker 的名称中包含集群的名称
-                startBroker(LOCALHOST_STR + IP_PORT_SEPARATOR + NAMESRV_PORT, clusterName, brokerName);
+        for (int i = 0; i < Constants.CLUSTER_NUM; i++) {
+            String clusterName = Constants.CLUSTER_NAME_PREFIX + clusterSuffix;
+            for (int j = 0; j < Constants.BROKERS_PER_CLUSTER; j++) {
+                String brokerName = clusterName + Constants.BROKER_PREFIX + j; // 在 broker 的名称中包含集群的名称
+                startBroker(Constants.LOCALHOST_STR + Constants.IP_PORT_SEPARATOR + Constants.NAMESRV_PORT, clusterName, brokerName);
             }
-            for (int k = 0; k < numTopicsPerBroker; k++) {
-                String topicName = clusterName + "-topic-" + k; // 在 topic 的名称中包含集群的名称和 broker 的名称
+            Thread.sleep(8000);
+            for (int k = 0; k < Constants.TOPICS_PER_BROKER; k++) {
+                String topicName = clusterName + Constants.TOPIC_PREFIX + k; // 在 topic 的名称中包含集群的名称和 broker 的名称
                 // 将创建 topic 的任务提交到线程池中
                 executorService.submit(() -> {
                     try {
-                        createTopic(topicName, LOCALHOST_STR + IP_PORT_SEPARATOR + NAMESRV_PORT, clusterName);
+                        createTopic(topicName, Constants.LOCALHOST_STR + Constants.IP_PORT_SEPARATOR + Constants.NAMESRV_PORT, clusterName);
                     } catch (Exception e) {
                         logger.error("Failed to create topic {}", topicName, e);
                     }
@@ -153,5 +143,13 @@ public class ServerStartup {
             }
             clusterSuffix++;
         }
+        Producers.start();
+        Consumers.start();
+    }
+
+    public static String getRandomTopicName() {
+        int clusterIndex = RandomUtils.nextInt(0, Constants.CLUSTER_NUM);
+        int topicIndex = RandomUtils.nextInt(0, Constants.TOPICS_PER_BROKER);
+        return Constants.CLUSTER_NAME_PREFIX + (char) ('a' + clusterIndex) + Constants.TOPIC_PREFIX + topicIndex;
     }
 }
