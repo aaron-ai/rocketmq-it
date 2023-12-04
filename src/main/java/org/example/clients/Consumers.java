@@ -16,7 +16,7 @@ public class Consumers {
     // Limit message max cache count to prevent OOM.
     private static final int CONSUMER_QUEUE_MESSAGE_MAX_CACHE_COUNT = 128;
     // Limit message consumption thread num to save resources.
-    private static final int CONSUME_THREAD_NUM = 2;
+    private static final int CONSUME_THREAD_NUM = 1;
 
     private static void startAll() {
         for (int i = 0; i < Constants.CONSUMER_NUM; i++) {
